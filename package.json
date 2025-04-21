@@ -1,0 +1,35 @@
+{
+  "name": "quipubase",
+  "version": "1.0.2",
+  "description": "A TypeScript SDK for interacting with QuipuBase.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bahamondex/quipu-sdk.git"
+  },
+  "keywords": [
+    "quipu",
+    "sdk",
+    "typescript",
+    "fastapi"
+  ],
+  "author": "Oscar Bahamonde",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/obahamonde/quipu-sdk/issues"
+  },
+  "homepage": "https://github.com/obahamonde/quipu-sdk#readme",
+  "dependencies": {
+    "reflect-metadata": "^0.1.13"
+  },
+  "devDependencies": {
+    "typescript": "^4.3.5",
+    "jest": "^27.0.6",
+    "@types/jest": "^27.0.1"
+  }
+}
