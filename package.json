@@ -2,15 +2,15 @@
   "name": "quipubase",
   "version": "1.0.2",
   "description": "A TypeScript SDK for interacting with QuipuBase.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "index.ts",
+  "types": "index.ts",
   "scripts": {
     "build": "tsc",
     "test": "jest"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bahamondex/quipu-sdk.git"
+    "url": "git+https://github.com/bahamondex/quipubase-client-typescript.git"
   },
   "keywords": [
     "quipu",
@@ -21,9 +21,9 @@
   "author": "Oscar Bahamonde",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/obahamonde/quipu-sdk/issues"
+    "url": "https://github.com/obahamonde/quipubase-client-typescript/issues"
   },
-  "homepage": "https://github.com/obahamonde/quipu-sdk#readme",
+  "homepage": "https://github.com/obahamonde/quipubase-client-typescript#readme",
   "dependencies": {
     "reflect-metadata": "^0.1.13"
   },
