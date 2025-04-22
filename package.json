@@ -1,6 +1,6 @@
 {
   "name": "quipubase",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A TypeScript SDK for interacting with QuipuBase.",
   "main": "index.ts",
   "types": "index.ts",

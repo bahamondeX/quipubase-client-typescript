@@ -1,14 +1,12 @@
 import "reflect-metadata";
 
-
-
-type Event = "create" | "read" | "update" | "delete" | "query" | "stop";
+type QuipuActions = "create" | "read" | "update" | "delete" | "query" | "stop";
 
 type JsonSchema = {
 	title: string;
 	description?: string;
 	type?: "object" | "array" | "string" | "number" | "integer" | "boolean" | "null";
-	properties?: {
+	properties: {
 		[key: string]: any;
 	};
 	required?: string[];
@@ -23,21 +21,27 @@ type Status = {
 	definition?: JsonSchema;
 };
 
+type CollectionMetadataType = {
+	id: string;
+	name: string;
+};
+
 type CollectionType = {
 	id: string;
-	definition: JsonSchema;
+	name: string;
+	schema: JsonSchema;
 };
 
 type ActionRequest = {
-	event: Event;
+	event: QuipuActions;
 	id?: string | null;
 	data?: object | null;
 };
 
 type SSEEvent<T> = {
-	data: T
+	data: T;
 	event: "create" | "read" | "update" | "delete" | "query" | "stop";
-}
+};
 
 const isObject = (value: any): value is object => {
 	return value && typeof value === "object" && !Array.isArray(value);
@@ -106,6 +110,7 @@ function jsonSchemaGenerator(typeName: string) {
 				return {
 					type: "array",
 					items: generateSchema(value[0]),
+					properties: {},
 				};
 			} else if (isObject(value)) {
 				const nestedSchema: JsonSchema = {
@@ -130,7 +135,8 @@ function jsonSchemaGenerator(typeName: string) {
 					};
 				} else {
 					return {
-						type: typeof value,
+						type: typeof value as "string" | "number" | "boolean" | "null",
+						properties: {},
 					};
 				}
 			}
@@ -160,7 +166,7 @@ interface IQuipuBase<T> {
 	limit?: number;
 	offset?: number;
 	buildUrl(endpoint: string, id?: string): string;
-	fetch(actionRequest: ActionRequest, colId: string, endpoint: string): Promise<Status | T | T[] | CollectionType>;
+	fetch(actionRequest: ActionRequest, colId: string, endpoint: string): Promise<Status | T | T[] | CollectionType | CollectionMetadataType>;
 	getJsonSchema<T>(data: T): JsonSchema;
 }
 
@@ -178,7 +184,7 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 		actionRequest: ActionRequest,
 		colId: string,
 		endpoint: string
-	): Promise<Status | T | T[] | CollectionType> {
+	): Promise<Status | T | T[] | CollectionType | CollectionMetadataType> {
 		const url = this.buildUrl(endpoint, colId);
 		const options = {
 			method: "PUT",
@@ -197,14 +203,19 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 	}
 
 	// Collection Management
-	async createCollection(schema: JsonSchema): Promise<CollectionType> {
+	async createCollection(schema: JsonSchema, name: string): Promise<CollectionType> {
 		const url = this.buildUrl("/v1/collections");
+		const collectionData = {
+			schema,
+			name
+		};
+
 		const options = {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify(schema),
+			body: JSON.stringify(collectionData),
 		};
 
 		const response = await fetch(url, options);
@@ -230,14 +241,14 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 		return await response.json() as Record<string, boolean>;
 	}
 
-	async listCollections(limit: number = 100, offset: number = 0): Promise<string[]> {
+	async listCollections(limit: number = 100, offset: number = 0): Promise<CollectionMetadataType[]> {
 		const params = new URLSearchParams();
 		params.set("limit", limit.toString());
 		params.set("offset", offset.toString());
 
 		const url = `${this.buildUrl("/v1/collections")}?${params.toString()}`;
 		const response = await fetch(url);
-		return await response.json() as string[];
+		return await response.json() as CollectionMetadataType[];
 	}
 
 	// Document Operations
@@ -288,7 +299,7 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 	}
 
 	// PubSub Operations
-	async publishEvent(collectionId: string, actionRequest: ActionRequest): Promise<object> {
+	async publishEvent(collectionId: string, actionRequest: ActionRequest): Promise<T> {
 		const url = this.buildUrl("/v1/events", collectionId);
 		const options = {
 			method: "POST",
@@ -303,25 +314,34 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 	}
 
 	// Stream subscription with custom handling
-	async subscribeToEvents(collectionId: string, callback: (data: SSEEvent<T>) => any) {
-		if (window.EventSource) {
+	async subscribeToEvents(collectionId: string, callback: (data: SSEEvent<T>) => any): Promise<() => void> {
+		if (typeof window !== 'undefined' && 'EventSource' in window) {
 			return this._subscribeToEvents(collectionId, callback);
-
 		}
+
 		const url = this.buildUrl("/v1/events", collectionId);
 
 		// Using fetch with a reader for more control
 		const response = await fetch(url);
 		const reader = response.body!.getReader();
 		const decoder = new TextDecoder();
+		let closed = false;
 
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
+		const processChunks = async () => {
+			while (!closed) {
+				const { done, value } = await reader.read();
+				if (done) break;
 
-			const chunk = decoder.decode(value, { stream: true });
-			callback(JSON.parse(chunk));
-		}
+				const chunk = decoder.decode(value, { stream: true });
+				callback(JSON.parse(chunk));
+			}
+		};
+
+		processChunks();
+
+		return () => {
+			closed = true;
+		};
 	}
 
 	async _subscribeToEvents(collectionId: string, callback: (event: any) => void): Promise<() => void> {
@@ -336,12 +356,12 @@ export class QuipuBase<T> implements IQuipuBase<T> {
 			console.error("EventSource error:", error);
 			eventSource.close();
 		};
+
 		// Return a function to close the connection
 		return () => {
 			eventSource.close();
 		};
 	}
-
 }
 
-export type { CollectionType, Status, JsonSchema, Event, ActionRequest };
+export type { CollectionType, CollectionMetadataType, Status, JsonSchema, QuipuActions, ActionRequest };
